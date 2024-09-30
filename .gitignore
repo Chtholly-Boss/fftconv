@@ -1,0 +1,5 @@
+# python artifacts
+__pycache__/
+*_cache/
+*.pyc
+*.pyd
