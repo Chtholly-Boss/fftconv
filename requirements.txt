@@ -1,3 +1,4 @@
 pytest
 torch
 fft_conv_pytorch
+setuptools

@@ -10,6 +10,7 @@ Follows are the packages we will use:
 torch
 fft_conv_pytorch
 pytest
+setuptools
 ```
 
 ## Stage 0
@@ -44,3 +45,20 @@ In this stage, we assume that `batch=channels=1` and focus on 2D FFT implementat
 
 We will refer to [CPP Custom Ops Tutorial](https://pytorch.org/tutorials/advanced/cpp_custom_ops.html#cpp-custom-ops-tutorial) to do extensions.
 
+When you write an extension, you should import like this:
+```py
+import torch
+import your.package
+```
+Otherwise, you will get an error like this:
+```shell
+Traceback (most recent call last):
+  File "/root/cuda_programming/nms/temp1.py", line 2, in <module>
+    from nms_cuda import nms
+ImportError: libc10.so: cannot open shared object file: No such file or directory
+```
+This is because your package is based on `torch`, so you should import `torch` first.
+
+Now you should successfully import your package.
+
+Let's take a look at the `cuFFT` and see how can we use it as our `rfftn` function.

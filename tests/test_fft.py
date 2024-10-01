@@ -1,4 +1,19 @@
 import pytest
+import torch
+import cusfft
+
+def test_fft1d():
+    """
+    Test the 1D FFT of torch.fftn and cuFFT
+    This test is mainly for learning how to use cuFFT
+    """
+    din = torch.randn(16)
+    din_cuda = din.cuda()
+    dout_cus = cusfft.fft(din_cuda)
+    dout_torch = torch.fft.rfftn(din_cuda)
+    print(dout_cus)
+    print(dout_torch)
+    assert torch.allclose(dout_torch, dout_cus)
 
 def test_rfftn():
     """
@@ -8,7 +23,6 @@ def test_rfftn():
     - Precision
     """
     # FFTs to be used
-    torch = __import__('torch')
     torch_rfftn = torch.fft.rfftn
     # TODO: import your fft
     cus = __import__('torch')

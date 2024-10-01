@@ -1,5 +1,11 @@
+# lab file
+*.ipynb
+# build artifacts
+build/
+*_cache/
+*.egg-info
+
 # python artifacts
 __pycache__/
-*_cache/
 *.pyc
 *.pyd
