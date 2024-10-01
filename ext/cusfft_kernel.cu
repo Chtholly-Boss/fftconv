@@ -3,7 +3,7 @@
 #include <cufft.h>
 #include <iostream>
 
-at::Tensor fft(at::Tensor signal) {
+at::Tensor rfft(at::Tensor signal) {
 	// check if signal is torch::kFloat32
 	if (signal.type().scalarType() != torch::kFloat32) {
 		throw std::runtime_error("signal must be torch::kFloat32");
@@ -41,5 +41,5 @@ at::Tensor rfftn(at::Tensor signal, std::vector<int64_t> dims) {
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-	m.def("fft", &fft, "1D FFT(CUDA)");
+	m.def("rfft", &rfft, "1D FFT(CUDA)");
 }

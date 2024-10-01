@@ -1,11 +1,15 @@
+TEST_DIR = ./tests
+
 all:
 	echo "all"
+
 test:
 	@echo "Installing cusfft..."
 	@pip install ./ext
 	@echo "Running tests"
 	@pytest
+
 clean:
-	echo "clean"
+	echo "Cleaning..."
 
 .PHONY: clean
