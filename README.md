@@ -8,9 +8,9 @@ And to do tests, we will use `pytest`
 Follows are the packages we will use:
 ```py
 torch
-fft_conv_pytorch
-pytest
 setuptools
+pytest
+fft_conv_pytorch
 ```
 
 ## Stage 0
@@ -29,21 +29,19 @@ output = irfftn(output_fr, dim=tuple(range(2, signal.ndim)))
 We can see how the naive FFT convolution is implemented.
 The core function is `rfftn` and `irfftn`, which are the real-valued FFT and inverse FFT functions.
 So in this stage, we will try to implement our `rfftn` and `irfftn` functions using `cuFFT`.
-This requires us to construct a framework to call `cuFFT` functions and compare the result with the `torch.fft`
-
-Let's first take a look at the `rfftn` function, which is taken from [torch.fft](https://pytorch.org/docs/stable/generated/torch.fft.rfftn.html#torch.fft.rfftn)
 
 From the code above, we can see that only `input` and `dim` parameters are needed.
 
-However, you should notice that the `dim` start from 2, this is because `dim[0] is batch-size` and `dim[1] is channels`.
+You should notice that the `dim` start from 2, this is because `dim[0] is batch-size` and `dim[1] is channels`.
 
 We will do FFT on the last 2 dimensions, so we can assume that:
 
 !!! note the input is a tensor with shape `(batch, channels, height, width)`
 
-In this stage, we assume that `batch=channels=1` and focus on 2D FFT implementation. 
+In this stage, we will focus on **Extension**. So we will implement **1D FFT** first.
 
-We will refer to [CPP Custom Ops Tutorial](https://pytorch.org/tutorials/advanced/cpp_custom_ops.html#cpp-custom-ops-tutorial) to do extensions.
+### Extension
+Refer to [CPP Custom Ops Tutorial](https://pytorch.org/tutorials/advanced/cpp_custom_ops.html#cpp-custom-ops-tutorial) to learn how to start.
 
 When you write an extension, you should import like this:
 ```py
@@ -59,6 +57,35 @@ ImportError: libc10.so: cannot open shared object file: No such file or director
 ```
 This is because your package is based on `torch`, so you should import `torch` first.
 
-Now you should successfully import your package.
+### 1D FFT
+Now we will implement the 1D FFT function using **cuFFT**.
 
-Let's take a look at the `cuFFT` and see how can we use it as our `rfftn` function.
+```cpp
+at::Tensor rfft(at::Tensor signal) {
+  // Prerequistes Checking
+  ...
+	int n = signal.size(0);
+	// create empty output tensor
+	int out_size = n / 2 + 1;
+  // torch::Complex64 corresponds to at::complex, so we do conversion
+	auto dout_real = torch::empty({out_size}, signal.options());
+	auto dout_imag = torch::empty({out_size}, signal.options());
+	auto dout = at::complex(dout_real, dout_imag);
+	
+	// create 1D cuFFT plan
+	cufftHandle plan;
+	cufftPlan1d(&plan, n, CUFFT_R2C, 1);
+
+	// cast signal to cuFFT type
+  // reinterpret_cast is needed, C-like cast will not work when compiling
+	cufftReal *din_fft = reinterpret_cast<cufftReal *>(signal.data_ptr());
+	cufftComplex *dout_fft = reinterpret_cast<cufftComplex *>(dout.data_ptr());
+
+	// execute cuFFT plan
+	cufftExecR2C(plan, din_fft, dout_fft);
+
+	// destroy cuFFT plan
+	cufftDestroy(plan);
+	return dout;
+}
+```
