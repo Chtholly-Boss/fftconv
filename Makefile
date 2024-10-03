@@ -7,17 +7,17 @@ all:
 	@echo "Running All Tests"
 	@pytest 
 
-test1:
+test_fft:
 	@echo "Installing cusfft..."
 	@pip install ${EXT_DIR}
 	@echo "Running FFT 1D Tests"
-	@pytest $(TEST_DIR)/test_fft_1d.py
+	@pytest $(TEST_DIR)/test_fft*.py
 
-test2:
+test_conv:
 	@echo "Installing cusfft..."
 	@pip install ${EXT_DIR}
-	@echo "Running FFT 2D Tests"
-	@pytest $(TEST_DIR)/test_fft_2d.py
+	@echo "Running Convolution 1D Tests"
+	@pytest $(TEST_DIR)/test_conv*.py
 
 clean:
 	@echo "Cleaning Caches"

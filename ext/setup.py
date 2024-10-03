@@ -6,7 +6,9 @@ setup(
     version='0.0.1',
     ext_modules=[
         CUDAExtension('cusfft', [
-            'cusfft_kernel.cu',
+            'fft.cu',
+            'conv.cu',
+            'cusfft.cpp',
         ])
     ],
     cmdclass={'build_ext': BuildExtension}
