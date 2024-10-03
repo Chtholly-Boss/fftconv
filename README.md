@@ -89,3 +89,10 @@ at::Tensor rfft(at::Tensor signal) {
 	return dout;
 }
 ```
+
+### Stage 1
+After implementing the 1D FFT function, we are now familiar with how to write an extension using `pytorch` and how to use `cuFFT`.
+
+It's easy to extend to 2D FFT, just change the `cufftPlan1d` to `cufftPlan2d` and the `dim` to `(height, width)`.
+
+So in this stage we will focus on integrate `FFT` into `Convolution`, which is the core of this project.

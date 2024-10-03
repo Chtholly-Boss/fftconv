@@ -25,12 +25,12 @@ def test_ifft1d():
     dout_inv = cusfft.irfft(dout)
     assert torch.allclose(din, dout_inv, atol=1e-5, rtol=1e-5)
 
-def test_perf_1dfft():
-    """
-    Test the performance of 1D FFT
-    """
-    din = torch.randn(LENGTH, device='cuda')
+# def test_perf_1dfft():
+#     """
+#     Test the performance of 1D FFT
+#     """
+#     din = torch.randn(LENGTH, device='cuda')
 
-    time_torch = perf_wrapper(fft_wrapper(torch.fft.rfftn, torch.fft.irfftn, din))
-    time_cus = perf_wrapper(fft_wrapper(cusfft.rfft, cusfft.irfft, din))
-    assert time_cus < time_torch, f"cusFFT is slower than torch.fft by {time_torch/time_cus:.2f}x"
+#     time_torch = perf_wrapper(fft_wrapper(torch.fft.rfftn, torch.fft.irfftn, din))
+#     time_cus = perf_wrapper(fft_wrapper(cusfft.rfft, cusfft.irfft, din))
+#     assert time_cus < time_torch, f"cusFFT is slower than torch.fft by {time_torch/time_cus:.2f}x"

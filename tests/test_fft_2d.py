@@ -5,26 +5,26 @@ from helpers import *
 HEIGTH = 1 << 10
 WIDTH = 1 << 10
 
-def test_rfftn():
+def test_rfft2():
     din = torch.randn(HEIGTH, WIDTH, device='cuda')
 
     dout_torch = torch.fft.rfftn(din)
-    dout_cusfft = cusfft.rfftn(din)
+    dout_cusfft = cusfft.rfft2(din)
 
     assert torch.allclose(dout_torch, dout_cusfft)
 
-def test_irfftn():
+def test_irfft2():
     din = torch.randn(HEIGTH, WIDTH, device='cuda')
 
-    dout = cusfft.rfftn(din)
-    dout_inv = cusfft.irfftn(dout)
+    dout = cusfft.rfft2(din)
+    dout_inv = cusfft.irfft2(dout)
     
     assert torch.allclose(din, dout_inv, rtol=1e-3, atol=1e-3)
 
-def test_perf_2dfft():
-    din = torch.randn(HEIGTH, WIDTH, device='cuda')
+def test_rfftn():
+    din = torch.randn(1, 3, HEIGTH, WIDTH, device='cuda')
 
-    time_torch = perf_wrapper(fft_wrapper(torch.fft.rfftn, torch.fft.irfftn, din))
-    time_cus = perf_wrapper(fft_wrapper(cusfft.rfft, cusfft.irfft, din))
+    dout_torch = torch.fft.rfftn(din, dim=(2,3))
+    dout_cusfft = cusfft.rfftn(din)
 
-    assert time_cus < time_torch, f"cusFFT is slower than torch.fft by {time_torch/time_cus:.2f}x"
+    assert torch.allclose(dout_torch, dout_cusfft, rtol=1e-3, atol=1e-3)

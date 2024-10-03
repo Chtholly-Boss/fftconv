@@ -1,3 +1,5 @@
+import torch
+
 def test_conv_precision():
     pass
 

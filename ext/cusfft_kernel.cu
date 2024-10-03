@@ -61,7 +61,7 @@ at::Tensor irfft(at::Tensor signal) {
 	return dout;
 }
 
-at::Tensor rfftn(at::Tensor signal) {
+at::Tensor rfft2(at::Tensor signal) {
 	// TODO: implement 2D FFT
 	// Check input type is kFloat32
 	TORCH_CHECK(signal.dtype() == torch::kFloat32, "signal must be torch::kFloat32");
@@ -92,11 +92,10 @@ at::Tensor rfftn(at::Tensor signal) {
 
 	// destroy cuFFT plan
 	cufftDestroy(plan);
-
 	return dout;
 }
 
-at::Tensor irfftn(at::Tensor signal) {
+at::Tensor irfft2(at::Tensor signal) {
     // TODO: implement Inverse 2D FFT
 	// Check input type is complex
 	TORCH_CHECK(signal.is_complex(), "signal must be at::complex");
@@ -134,9 +133,55 @@ at::Tensor irfftn(at::Tensor signal) {
 	return dout;
 }
 
+// Declare rfftn takes a Tensor and a vector of ints that specify the dimension to do fft
+at::Tensor rfftn(at::Tensor signal) {
+	// TODO: implement n-D FFT
+	// Check input type is kFloat32
+	TORCH_CHECK(signal.dtype() == torch::kFloat32, "signal must be torch::kFloat32");
+	TORCH_CHECK(signal.is_cuda(), "signal must be on cuda");
+	// Get the parameters
+	int batch = signal.size(0);
+	int channel = signal.size(1);
+	int height = signal.size(2);
+	int width = signal.size(3);
+
+	// create empty output tensor
+	int cHeight = height;
+	int cWidth = width / 2 + 1;
+
+	auto dout_real = torch::empty({batch, channel, cHeight, cWidth}, signal.options());
+	auto dout_imag = torch::empty({batch, channel, cHeight, cWidth}, signal.options());
+	auto dout = at::complex(dout_real, dout_imag);
+
+	// create 2D cuFFT plan
+	int x = height, y = width;
+	cufftHandle plan;
+	cufftPlan2d(&plan, x, y, CUFFT_R2C);
+	// cast signal to cuFFT type
+	cufftReal *din_fft = reinterpret_cast<cufftReal *>(signal.data_ptr());
+	cufftComplex *dout_fft = reinterpret_cast<cufftComplex *>(dout.data_ptr());
+	// execute cuFFT plan
+	// loop on batch and channel
+	for (int i = 0; i < batch; i++) {
+		for (int j = 0; j < channel; j++) {
+			cufftExecR2C(
+				plan, 
+				din_fft + i * channel * height * width + j * height * width, 
+				dout_fft + i * channel * cHeight * cWidth + j * cHeight * cWidth
+			);
+		}
+	}
+	
+	// destroy cuFFT plan
+	cufftDestroy(plan);
+	return dout;
+}
+
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 	m.def("rfft", &rfft, "1D FFT(CUDA)");
 	m.def("irfft", &irfft, "Inverse 1D FFT(CUDA)");
-	m.def("rfftn", &rfftn, "N-D FFT(CUDA)");
-	m.def("irfftn", &irfftn, "Inverse N-D FFT(CUDA)");
+	m.def("rfft2", &rfft2, "2-D FFT(CUDA)");
+	m.def("irfft2", &irfft2, "Inverse 2-D FFT(CUDA)");
+	m.def("rfftn", &rfftn, "n-D FFT(CUDA)");
 }
