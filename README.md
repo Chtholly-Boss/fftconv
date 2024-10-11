@@ -2,21 +2,47 @@
 This repository is a toy project to familiar myself with PyTorch C++ extension, aiming to implement FFT convolution in PyTorch.
 
 ## C++ Extension
-Refer to [CPP Custom Ops Tutorial](https://pytorch.org/tutorials/advanced/cpp_custom_ops.html#cpp-custom-ops-tutorial) to learn how to start.
+It can be done easily by using [pybind11](https://pybind11.readthedocs.io/en/stable/index.html).
+```cpp
+// we use a separate file to define the extension
+// in cusfft.cpp
+#include "fftconv2d.h"  // the header file define the functions we want to export
 
-When you write an extension, you should import like this:
+namespace py = pybind11;
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+	m.doc() = "Convolution using FFT (CUDA)"; // add docstring
+
+	py::module fft = m.def_submodule("fft", "Modules contain FFT functions"); // define a submodule
+	fft.def("rfft", &rfft, "1D R2C FFT(CUDA)");
+  ...
+}
+```
+
+Then we write a `setup.py` to build the extension:
 ```py
+from setuptools import setup
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+
+setup(
+    name='fftconv2d',
+    version='0.1.0',
+    ext_modules=[
+        CUDAExtension('fftconv2d', [
+            'fft.cu',
+            ...
+        ])
+    ],
+    cmdclass={'build_ext': BuildExtension}
+)
+```
+
+After writing your extension, you should import it like the following:
+```py
+# import torch before your package, otherwise you will get an error
 import torch
 import your.package
 ```
-Otherwise, you will get an error like this:
-```shell
-Traceback (most recent call last):
-  File "/root/cuda_programming/nms/temp1.py", line 2, in <module>
-    from nms_cuda import nms
-ImportError: libc10.so: cannot open shared object file: No such file or directory
-```
-This is because your package is based on `torch`, so you should import `torch` first.
 
 ## Convolution
 We can learn how to do convolution throught FFT from [fft-conv-pytorch](https://github.com/fkodom/fft-conv-pytorch).

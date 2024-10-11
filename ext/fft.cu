@@ -1,6 +1,4 @@
 #include "fftconv2d.h"
-#include <cufft.h>
-#include <vector>
 
 at::Tensor rfft(at::Tensor signal) {
 	TORCH_CHECK(signal.dtype() == torch::kFloat32, "signal must be torch::kFloat32");

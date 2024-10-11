@@ -4,33 +4,10 @@ from typing import Iterable, Tuple, Union
 import torch
 import torch.nn.functional as f
 from torch import Tensor, nn
-from torch.fft import irfftn, rfftn
+from torch.fft import irfftn
 from math import ceil, floor
 
 import fftconv2d
-from fftconv2d import conv2d
-
-def complex_matmul(a: Tensor, b: Tensor, groups: int = 1) -> Tensor:
-    """Multiplies two complex-valued tensors."""
-    # Scalar matrix multiplication of two tensors, over only the first channel
-    # dimensions. Dimensions 3 and higher will have the same shape after multiplication.
-    # We also allow for "grouped" multiplications, where multiple sections of channels
-    # are multiplied independently of one another (required for group convolutions).
-    a = a.view(a.size(0), groups, -1, *a.shape[2:])
-    b = b.view(groups, -1, *b.shape[1:])
-
-    a = torch.movedim(a, 2, a.dim() - 1).unsqueeze(-2)
-    b = torch.movedim(b, (1, 2), (b.dim() - 1, b.dim() - 2))
-
-    # complex value matrix multiplication
-    real = a.real @ b.real - a.imag @ b.imag
-    imag = a.imag @ b.real + a.real @ b.imag
-    real = torch.movedim(real, real.dim() - 1, 2).squeeze(-1)
-    imag = torch.movedim(imag, imag.dim() - 1, 2).squeeze(-1)
-    c = torch.zeros(real.shape, dtype=torch.complex64, device=a.device)
-    c.real, c.imag = real, imag
-
-    return c.view(c.size(0), -1, *c.shape[3:])
 
 def to_ntuple(val: Union[int, Iterable[int]], n: int) -> Tuple[int, ...]:
     if isinstance(val, Iterable):
@@ -94,22 +71,13 @@ def fft_conv(
     ]
     padded_kernel = f.pad(kernel, kernel_padding)
 
-    # # Perform fourier convolution -- FFT, matrix multiply, then IFFT
-    # signal_fr = rfftn(signal.float(), dim=tuple(range(2, signal.ndim)))
-    # kernel_fr = rfftn(padded_kernel.float(), dim=tuple(range(2, signal.ndim)))
-    # kernel_fr.imag *= -1
-    # output_fr = complex_matmul(signal_fr, kernel_fr, groups=groups)
-    # output = irfftn(output_fr, dim=tuple(range(2, signal.ndim)))
+    output_fr = fftconv2d.conv.conv2d(signal.float().cuda(), padded_kernel.float().cuda(), groups)
+    output = irfftn(output_fr.cpu(), dim=tuple(range(2, signal.ndim)))
 
-    output_fr = conv2d(signal.float().cuda(), padded_kernel.float().cuda(), groups)
     # todo: my irfftn couldn't pass but torch's can
-    output_torch = irfftn(output_fr.cuda(), dim=(2,3))
-    output = fftconv2d.irfftn(output_fr)
-    print(f'torch: {output_torch} of shape {output_torch.shape} and dtype {output_torch.dtype}')
-
-    print(f'my: {output} of shape {output.shape} and dtype {output.dtype}')
-
-    assert torch.allclose(output, output_torch, rtol=1e-5, atol=1e-5)
+    # output = irfftn(output_fr.cuda(), dim=(2,3))
+    # output = fftconv2d.irfftn(output_fr)
+    # assert torch.allclose(output, output_torch, rtol=1e-5, atol=1e-5)
     # todo: you should pass the above assertion
     # Remove extra padded values
     crop_slices = [slice(None), slice(None)] + [

@@ -1,24 +1,26 @@
 EXT_DIR = ./ext
 TEST_DIR = ./tests
+CLEAN_DIRS = . $(TEST_DIR) $(EXT_DIR)
 
 all:
-	@pip install ${EXT_DIR}
 	@echo "Running All Tests"
 	@pytest 
 
-testf:
+ext:
 	@pip install ${EXT_DIR}
-	@echo "Running FFT 1D Tests"
-	@pytest $(TEST_DIR)/test_fft*.py
 
-testc:
-	@pip install ${EXT_DIR}
-	@echo "Running Convolution 1D Tests"
-	@pytest $(TEST_DIR)/test_conv*.py
+tprecision:
+	@echo "Checking Precision" 
+	@pytest $(TEST_DIR)/test_precision*.py
+
+tspeed:
+	@echo "Checking Speed"
+	@pytest $(TEST_DIR)/test_speed*.py
 
 clean:
-	rm -rf __pycache__
-	rm -rf $(TEST_DIR)/__pycache__
-	rm -rf .pytest_cache
+	rm -rf $(addsuffix /__pycache__, $(CLEAN_DIRS))
+	rm -rf $(addsuffix /.pytest_cache, $(CLEAN_DIRS))
+	rm -rf $(EXT_DIR)/build
+	rm -rf $(EXT_DIR)/*.egg-info
 
 .PHONY: clean
