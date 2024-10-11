@@ -1,5 +1,6 @@
 # lab file
-*.ipynb
+lab*
+
 # build artifacts
 build/
 *_cache/

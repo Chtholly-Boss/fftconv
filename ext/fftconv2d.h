@@ -1,8 +1,12 @@
-#ifndef CUSFFT
-#define CUSFFT
+#pragma once
+
+#ifndef FFTCONV_2D
+#define FFTCONV_2D
 // Header Files
 #include <torch/extension.h>
 #include <iostream>
+#include <cufft.h>
+#include <vector>
 
 // macros
 #define CHECK_CUDA(x) AT_ASSERTM(x.is_cuda(), #x " must be a CUDA tensor")
@@ -20,6 +24,6 @@ at::Tensor irfft2(at::Tensor signal);
 at::Tensor rfftn(at::Tensor signal);
 at::Tensor irfftn(at::Tensor signal);
 // conv.cu
-at::Tensor conv_forward(at::Tensor signal, at::Tensor kernel);
+at::Tensor conv2d(at::Tensor signal, at::Tensor kernel, int64_t groups);
 
-#endif // CUSFFT
+#endif // FFTCONV_2D

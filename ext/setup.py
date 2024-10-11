@@ -2,10 +2,10 @@ from setuptools import setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 setup(
-    name='cusfft',
-    version='0.0.1',
+    name='fftconv2d',
+    version='0.1.0',
     ext_modules=[
-        CUDAExtension('cusfft', [
+        CUDAExtension('fftconv2d', [
             'fft.cu',
             'conv.cu',
             'cusfft.cpp',

@@ -1,5 +1,6 @@
-#include "cusfft.h"
+#include "fftconv2d.h"
 #include <cufft.h>
+#include <vector>
 
 at::Tensor rfft(at::Tensor signal) {
 	TORCH_CHECK(signal.dtype() == torch::kFloat32, "signal must be torch::kFloat32");
@@ -136,18 +137,21 @@ at::Tensor rfftn(at::Tensor signal) {
 	// Check input type is kFloat32
 	TORCH_CHECK(signal.dtype() == torch::kFloat32, "signal must be torch::kFloat32");
 	TORCH_CHECK(signal.is_cuda(), "signal must be on cuda");
-	// Get the parameters
-	int batch = signal.size(0);
-	int channel = signal.size(1);
-	int height = signal.size(2);
-	int width = signal.size(3);
+	// do fft on the last 2 dimensions, treat other dimensino as batch dimension
+	int ndim = signal.dim();
+	int width = signal.size(ndim - 1);
+	int height = signal.size(ndim - 2);
 
-	// create empty output tensor
 	int cHeight = height;
 	int cWidth = width / 2 + 1;
+	// Get signal.size() and replace last 2 dimension with cHeight and cWidth
+	auto size_tuple = signal.sizes();
+	std::vector<int64_t> sizes(size_tuple.begin(), size_tuple.end());
 
-	auto dout_real = torch::empty({batch, channel, cHeight, cWidth}, signal.options());
-	auto dout_imag = torch::empty({batch, channel, cHeight, cWidth}, signal.options());
+	sizes[ndim - 1] = cWidth;
+	sizes[ndim - 2] = cHeight;
+	auto dout_real = torch::empty(sizes, signal.options());
+	auto dout_imag = torch::empty(sizes, signal.options());
 	auto dout = at::complex(dout_real, dout_imag);
 
 	// create 2D cuFFT plan
@@ -157,18 +161,20 @@ at::Tensor rfftn(at::Tensor signal) {
 	// cast signal to cuFFT type
 	cufftReal *din_fft = reinterpret_cast<cufftReal *>(signal.data_ptr());
 	cufftComplex *dout_fft = reinterpret_cast<cufftComplex *>(dout.data_ptr());
-	// execute cuFFT plan
-	// loop on batch and channel
-	for (int i = 0; i < batch; i++) {
-		for (int j = 0; j < channel; j++) {
-			cufftExecR2C(
-				plan, 
-				din_fft + i * channel * height * width + j * height * width, 
-				dout_fft + i * channel * cHeight * cWidth + j * cHeight * cWidth
-			);
-		}
+
+	// treat other dimensions as batch dimension, compute the batch size
+	int batch = 1;
+	for (int i = 0; i < ndim - 2; i++) {
+		batch *= signal.size(i);
 	}
-	
+	// perform 2D fft on the last 2 dimension
+	for (int i = 0; i < batch; i++) {
+		cufftExecR2C(
+			plan, 
+			din_fft + i * height * width, 
+			dout_fft + i * cHeight * cWidth
+		);
+	}
 	// destroy cuFFT plan
 	cufftDestroy(plan);
 	return dout;
@@ -179,38 +185,47 @@ at::Tensor irfftn(at::Tensor signal) {
 	TORCH_CHECK(signal.is_complex(), "signal must be at::complex");
 	TORCH_CHECK(signal.is_cuda(), "signal must be on cuda");
 	// Get the parameters
-	int batch = signal.size(0);
-	int channel = signal.size(1);
-	int cHeight = signal.size(2);
-	int cWidth = signal.size(3);
+	int ndim = signal.dim();
+	int cWidth = signal.size(ndim-1);
+	int cHeight = signal.size(ndim-2);
 
-	// create empty output tensor
 	int rHeight = cHeight;
 	int rWidth = (cWidth - 1) * 2;
-	auto dout = torch::empty({batch, channel, rHeight, rWidth}, signal.options().dtype(torch::kFloat32));
 
+	auto size_tuple = signal.sizes();
+	std::vector<int64_t> sizes(size_tuple.begin(), size_tuple.end());
+
+	sizes[ndim - 1] = rWidth;
+	sizes[ndim - 2] = rHeight;
+	auto dout = torch::empty(sizes, signal.options().dtype(torch::kFloat32));
+
+	// compute the batch size
+	int batch = 1;
+	for (int i = 0; i < ndim - 2; i++) {
+		batch *= signal.size(i);
+	}
 	// create 2D cuFFT plan
 	int x = rHeight, y = rWidth;
 	cufftHandle plan;
 	cufftPlan2d(&plan, x, y, CUFFT_C2R);
 
 	// cast signal to cuFFT type
-	cufftComplex *din_fft = reinterpret_cast<cufftComplex *>(signal.data_ptr());
+	// dup the signal to avoid modifying the original signal
+	at::Tensor signal_dup = signal.clone();
+	cufftComplex *din_fft = reinterpret_cast<cufftComplex *>(signal_dup.data_ptr());
 	cufftReal *dout_fft = reinterpret_cast<cufftReal *>(dout.data_ptr());
-	// execute cuFFT plan
-	// loop on batch and channel
+
+	// perform 2D ifft on the last 2 dimension
 	for (int i = 0; i < batch; i++) {
-		for (int j = 0; j < channel; j++) {
-			cufftExecC2R(
-				plan, 
-				din_fft + i * channel * cHeight * cWidth + j * cHeight * cWidth, 
-				dout_fft + i * channel * rHeight * rWidth + j * rHeight * rWidth
-			);
-			// normalize output tensor
-			dout[i][j] /= (rHeight * rWidth);
-		}
+		cufftExecC2R(
+			plan,
+			din_fft + i * cHeight * cWidth,
+			dout_fft + i * rHeight * rWidth
+		);
 	}
 	// destroy cuFFT plan
 	cufftDestroy(plan);
+	// normalize
+	dout /= (rHeight * rWidth);
 	return dout;
 }
